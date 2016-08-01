@@ -80,12 +80,12 @@ function ParticleAccessory(log, url, access_token, device) {
 		
 		this.garageService
 			.getCharacteristic(Characteristic.CurrentDoorState)
-			.on('get', this.getState.bind(this))
+			.on('get', this.getDoorState.bind(this))
 
 		this.garageService
 			.getCharacteristic(Characteristic.TargetDoorState)
-			.on('get', this.getState.bind(this))
-			.on('set', this.setState.bind(this));
+			.on('get', this.getDoorState.bind(this))
+			.on('set', this.setDoorState.bind(this));
 
 		this.services.push(this.garageService);
 	}
@@ -156,6 +156,35 @@ ParticleAccessory.prototype.setState = function(state, callback) {
 	
 	var argument = this.args.replace("{STATE}", (state ? "1" : "0"));
 
+	request.post(
+		onUrl, {
+			form: {
+				access_token: this.accessToken,
+				args: argument
+			}
+		},
+		function(error, response, body) {
+			if (!error) {
+				callback(null);
+			} else {
+				callback(error);
+			}
+		}
+	);
+}
+
+ParticleAccessory.prototype.setDoorState = function(state, callback) {
+	this.log.info("Setting current state...");
+	
+	this.log.info("URL: " + this.url);
+	this.log.info("Device ID: " + this.deviceId);
+  
+	var onUrl = this.url + this.deviceId + "/" + this.functionName;
+	
+	this.log.info("Calling function: " + onUrl);
+	
+	var argument = this.args.replace("{STATE}", (state ? "1" : "0"));
+
 	var that = this;
 
 	request.post(
@@ -190,17 +219,17 @@ ParticleAccessory.prototype.getStateLoop = function(status) {
 
 		that.log.info("CurrentState: " + currentState);
 		if(currentState !== status){
-			that.getState(callback);
+			that.getDoorState(callback);
 		} else {
 			that.garageService
 				.setCharacteristic(Characteristic.CurrentDoorState, status);
 		}
 	}
 
-	this.getState(callback);	
+	this.getDoorState(callback);	
 }
 
-ParticleAccessory.prototype.getState = function(callback) {
+ParticleAccessory.prototype.getDoorState = function(callback) {
 	this.log("Getting current state...");
 
 	var onUrl = this.url + this.deviceId + "/" + 'doorState';
@@ -216,7 +245,7 @@ ParticleAccessory.prototype.getState = function(callback) {
 			}
 		},
 		function(error, response, body) {
-			that.log('getState:' + JSON.parse(body).return_value);
+			that.log('getDoorState:' + JSON.parse(body).return_value);
 
 			if (!error) {
 				callback(null, JSON.parse(body).return_value);
