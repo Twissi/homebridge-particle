@@ -73,6 +73,22 @@ function ParticleAccessory(log, url, access_token, device) {
 			
 		this.services.push(this.lightService);
 	}
+	else if(this.type === "LOCK"){
+		console.log("Garage Door Opener");
+		
+		this.garageService = new Service.GarageDoorOpener(this.name);
+		
+		this.garageService
+			.getCharacteristic(Characteristic.CurrentDoorState)
+			.on('get', this.getState.bind(this))
+
+		this.garageService
+			.getCharacteristic(Characteristic.TargetDoorState)
+			.on('get', this.getState.bind(this))
+			.on('set', this.setState.bind(this));
+
+		this.services.push(this.garageService);
+	}
 	else if(this.type === "SENSOR"){
 		var service;
 		
@@ -129,7 +145,7 @@ function ParticleAccessory(log, url, access_token, device) {
 }
 
 ParticleAccessory.prototype.setState = function(state, callback) {
-	this.log.info("Getting current state...");
+	this.log.info("Setting current state...");
 	
 	this.log.info("URL: " + this.url);
 	this.log.info("Device ID: " + this.deviceId);
@@ -140,6 +156,8 @@ ParticleAccessory.prototype.setState = function(state, callback) {
 	
 	var argument = this.args.replace("{STATE}", (state ? "1" : "0"));
 
+	var that = this;
+
 	request.post(
 		onUrl, {
 			form: {
@@ -148,10 +166,60 @@ ParticleAccessory.prototype.setState = function(state, callback) {
 			}
 		},
 		function(error, response, body) {
-			console.log(response);
+
+			var status = JSON.parse(body).return_value;
+			
+			if (!error && status !== -1) {
+
+				that.getStateLoop(status);
+				
+				callback(null);
+			} else {
+				callback(error);
+			}
+		}
+	);
+}
+
+ParticleAccessory.prototype.getStateLoop = function(status) {
+	var currentState;
+	var that = this;
+
+	var callback = function(error, newValue){
+		currentState = newValue;
+
+		that.log.info("CurrentState: " + currentState);
+		if(currentState !== status){
+			that.getState(callback);
+		} else {
+			that.garageService
+				.setCharacteristic(Characteristic.CurrentDoorState, status);
+		}
+	}
+
+	this.getState(callback);	
+}
+
+ParticleAccessory.prototype.getState = function(callback) {
+	this.log("Getting current state...");
+
+	var onUrl = this.url + this.deviceId + "/" + 'doorState';
+	
+	this.log.info("Calling function: " + onUrl);
+
+	var that = this;
+
+	request.post(
+		onUrl, {
+			form: {
+				access_token: this.accessToken
+			}
+		},
+		function(error, response, body) {
+			that.log('getState:' + JSON.parse(body).return_value);
 
 			if (!error) {
-				callback();
+				callback(null, JSON.parse(body).return_value);
 			} else {
 				callback(error);
 			}
