@@ -196,11 +196,13 @@ ParticleAccessory.prototype.setDoorState = function(state, callback) {
 		},
 		function(error, response, body) {
 
-			var status = JSON.parse(body).return_value;
-			
-			if (!error && status !== -1) {
+			if (!error && response.statusCode == 200) {
 
-				that.getStateLoop(status);
+				var status = JSON.parse(body).return_value;
+
+				if (status !== -1) {
+					that.getStateLoop(status);	
+				}
 				
 				callback(null);
 			} else {
@@ -245,10 +247,12 @@ ParticleAccessory.prototype.getDoorState = function(callback) {
 			}
 		},
 		function(error, response, body) {
-			that.log('getDoorState:' + JSON.parse(body).return_value);
+			if (!error && response.statusCode == 200) {
 
-			if (!error) {
-				callback(null, JSON.parse(body).return_value);
+				var status = JSON.parse(body).return_value;
+				that.log('getDoorState:' + status);
+
+				callback(null, status);
 			} else {
 				callback(error);
 			}
